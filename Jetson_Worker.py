@@ -10,7 +10,7 @@ MQTT_PATH = "test/people_counter"
 client = mqtt.Client()
 client.connect(MQTT_SERVER)
 
-# Define a dictionary to store information about each object
+# Dictionary to store information about each object
 objects = {}
 
 # ID counter
@@ -23,11 +23,12 @@ num_frames = 10
 people_inside = 0
 
 # Load model
-model = torch.hub.load('ultralytics/yolov5', 'yolov5s')
+model = torch.hub.load('GilFernandes/yolov5', 'yolov5s')
 
 def xyxy2bbox(xyxy):
     return [int(coord) for coord in xyxy]
 
+# Calculate the direction of the object based on the previous and current centroid
 def calculate_direction(prev_centroid, curr_centroid):
     y_diff = curr_centroid[1] - prev_centroid[1]
     return 'Down' if y_diff > 0 else 'Up' if y_diff < 0 else 'Stationary'
@@ -39,7 +40,7 @@ def process_frame(frame):
 def track_objects(results, frame):
     global id_counter, people_inside
     line_y = frame.shape[0] // 2
-    cv2.line(frame, (0, line_y), (frame.shape[1], line_y), (0, 255, 255), 2)
+    cv2.line(frame, (0, line_y), (frame.shape[1], line_y), (0, 255, 255), 2) # Line that server as entrance/exit
 
     for *xyxy, conf, cls in results.xyxy[0]:
         cls_name = results.names[int(cls)]
@@ -58,22 +59,20 @@ def track_objects(results, frame):
 
         if objects[obj_id]['directions'] and objects[obj_id]['directions'][-1] != 'Stationary':
             old_people_inside = people_inside
+            
+            # # A Persons enters the building
             if objects[obj_id]['directions'][-1] == 'Down' and centroid[1] > line_y and objects[obj_id]['side'] == 'Up' and objects[obj_id]['state'] != 'Inside':
                 objects[obj_id]['side'] = 'Down'
                 objects[obj_id]['state'] = 'Inside'
-                client.publish(MQTT_PATH, 'Enter')
+                client.publish(MQTT_PATH, 'Enter') # Publish a message to the MQTT topic so that the master can update the people inside counter
                 print(f'Person {obj_id} entered the building')
-                people_inside += 1
+            
+            # A Person leaves the building 
             elif objects[obj_id]['directions'][-1] == 'Up' and centroid[1] < line_y and objects[obj_id]['side'] == 'Down' and objects[obj_id]['state'] != 'Outside':
                 objects[obj_id]['side'] = 'Up'
                 objects[obj_id]['state'] = 'Outside'
-                client.publish(MQTT_PATH, 'Leave')
+                client.publish(MQTT_PATH, 'Leave') # Publish a message to the MQTT topic so that the master can update the people inside counter
                 print(f'Person {obj_id} exited the building')
-                people_inside -= 1
-                people_inside = max(0, people_inside)
-
-            if old_people_inside != people_inside:
-                print(f'Estimated number of people inside the building: {people_inside}')
 
         draw_objects(frame, bbox, centroid, cls_name, obj_id)
         update_object_direction(obj_id, centroid)
@@ -106,7 +105,7 @@ def main():
             break
         results = process_frame(frame)
         frame = track_objects(results, frame)
-        #cv2.imshow('frame', frame)
+        cv2.imshow('frame', frame)
         if cv2.waitKey(1) == ord('q'):
             break
     cap.release()

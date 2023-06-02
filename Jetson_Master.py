@@ -14,20 +14,21 @@ socketio = SocketIO(app, async_mode='threading')
 thread = None
 thread_lock = Lock()
 
-MQTT_SERVER = "10.1.1.20" # change
-MQTT_PATH = "counter" # change
+
+MQTT_SERVER = "10.1.1.20" # B.A.T.M.A.N. ip of the master
+MQTT_PATH = "counter" # Topic name on the master
 
 client = mqtt.Client()
 client.connect(MQTT_SERVER)
 
-# Define a dictionary to store information about each object
+# Dictionary to store information about each object
 objects = {}
 
 # ID counter
 id_counter = 1
 
 # Number of frames to collect before estimating direction
-num_frames = 25
+num_frames = 10
 
 # Counter for people inside
 people_inside = Value('i', 0)
@@ -39,14 +40,13 @@ def on_message(client, userdata, message):
         people_inside.value += 1
         update_people_inside(people_inside.value)
         print(f'Update from Jetson: Person entered the building. People inside: {people_inside.value}')
-    elif message == 'Leave':  # direction == 'Right'
+    elif message == 'Leave': 
         people_inside.value -= 1
         people_inside.value = max(0, people_inside.value)
         update_people_inside(people_inside.value)
         print(f'Update from Jetson: Person left the building. People inside: {people_inside.value}')
-    
-    #print(f'Estimated number of people inside the building: {people_inside}')
-    
+
+# Create an MQTT client and subscribe to topic
 client = mqtt.Client()
 client.on_message = on_message
 client.connect(MQTT_SERVER)
@@ -60,7 +60,7 @@ def home():
     with thread_lock:
         if thread is None:
             thread = socketio.start_background_task(target=main)
-    return render_template('dashboard.html')  # you'll need to create this HTML file
+    return render_template('dashboard.html')
 
 def update_people_inside(new_value):
     with people_inside.get_lock():
@@ -85,7 +85,7 @@ def process_frame(frame):
 def track_objects(results, frame):
     global id_counter, people_inside
     line_y = frame.shape[0] // 2
-    cv2.line(frame, (0, line_y), (frame.shape[1], line_y), (0, 255, 255), 2)
+    cv2.line(frame, (0, line_y), (frame.shape[1], line_y), (0, 255, 255), 2) # Line that server as entrance/exit
 
     for *xyxy, conf, cls in results.xyxy[0]:
         cls_name = results.names[int(cls)]
@@ -104,22 +104,26 @@ def track_objects(results, frame):
 
         if objects[obj_id]['directions'] and objects[obj_id]['directions'][-1] != 'Stationary':
             old_people_inside = people_inside.value
+            
+            # A Persons enters the building
             if objects[obj_id]['directions'][-1] == 'Down' and centroid[1] > line_y and objects[obj_id]['side'] == 'Up' and objects[obj_id]['state'] != 'Inside':
                 objects[obj_id]['side'] = 'Down'
                 objects[obj_id]['state'] = 'Inside'
                 print(f'Person {obj_id} entered the building')
                 people_inside.value += 1
+            
+            # A Person leaves the building
             elif objects[obj_id]['directions'][-1] == 'Up' and centroid[1] < line_y and objects[obj_id]['side'] == 'Down' and objects[obj_id]['state'] != 'Outside':
                 objects[obj_id]['side'] = 'Up'
                 objects[obj_id]['state'] = 'Outside'
                 print(f'Person {obj_id} exited the building')
                 people_inside.value -= 1
                 people_inside.value = max(0, people_inside.value)
-
+            
             if old_people_inside != people_inside.value:
                 print(f'Estimated number of people inside the building: {people_inside.value}')
                 
-                update_people_inside(people_inside.value)  # emit SocketIO event
+                update_people_inside(people_inside.value)
 
         draw_objects(frame, bbox, centroid, cls_name, obj_id)
         update_object_direction(obj_id, centroid)
