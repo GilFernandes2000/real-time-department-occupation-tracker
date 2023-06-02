@@ -1,0 +1,19 @@
+body {
+    padding: 0;
+    margin: 0;
+    height: 100vh; /* view height: the height of the viewport */
+    width: 100vw; /* view width: the width of the viewport */
+    display: flex; /* use flex layout for children */
+    flex-direction: column; /* stack children vertically */
+}
+
+#panel {
+    height: 10%; /* 10% of parent height */
+    width: 100%; /* 100% of parent width */
+}
+
+#map {
+    height: auto; /* auto height */
+    width: 100%; /* 100% of parent width */
+    flex: 1; /* fill remaining space */
+}
