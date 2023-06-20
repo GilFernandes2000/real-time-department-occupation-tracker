@@ -18,7 +18,21 @@ pip install -r requirements.txt
 
 Run the Project:
 
-This configuration is working with the Jetson Master serving as the Dashbard and receiving messages from the Jetson_Worker_Down_Up model 
+This configuration is working with the Jetson Master serving as the Dashbard and receiving messages from the Jetson_Worker_Down_Up model.
+
+Keep in mind that the paths on the setup.sh are relative to the jetson configuration
 ```bash 
 setup.sh wlan0 <batman_ip>
 ```
+
+Local Run:
+Local run can only be accomplished by running the detection scripts Jetson_Worker_Down_Up.py and Jetson_Worker_Left_Right.py
+```bash
+python Jetson_Worker_Down_Up.py
+```
+Or:
+```bash
+python Jetson_Worker_Left_Right.py
+```
+
+
