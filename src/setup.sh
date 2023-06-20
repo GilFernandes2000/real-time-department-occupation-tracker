@@ -10,7 +10,7 @@ cd batman_installation
 # Start Detection
 cd ../RSAProj
 if [[ -e Jetson_Master.py ]]; then
-    echo "Found Jetson_Master.py"
+    echo "Found Jetson_Dashboard.py"
     echo "Starting detection..."
     python3 Jetson_Master.py
 elif [[ -e Jetson_Worker.py ]]; then
